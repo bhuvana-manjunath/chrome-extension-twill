@@ -177,8 +177,64 @@ function convertToSentenceCase(name) {
     return name; // Return original if not all caps
 }
 
+// Function to wait for experience section content to load
+function waitForExperienceContent(timeout = 3000) {
+    return new Promise((resolve) => {
+        const experienceAnchor = document.querySelector('#experience');
+        if (!experienceAnchor) {
+            resolve(false);
+            return;
+        }
+        
+        const experienceSection = experienceAnchor.closest('section');
+        if (!experienceSection) {
+            resolve(false);
+            return;
+        }
+        
+        // Check if experience content is already loaded
+        const firstExperience = experienceSection.querySelector('.artdeco-list__item');
+        if (firstExperience) {
+            resolve(true);
+            return;
+        }
+        
+        // Set up MutationObserver to watch for experience content
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    // Check if any added nodes contain experience items
+                    mutation.addedNodes.forEach(node => {
+                        if (node.nodeType === 1) { // Element node
+                            // Check if this node or its children contain experience items
+                            const experienceItems = node.querySelectorAll && node.querySelectorAll('.artdeco-list__item');
+                            if (experienceItems && experienceItems.length > 0) {
+                                observer.disconnect();
+                                resolve(true);
+                                return;
+                            }
+                        }
+                    });
+                }
+            });
+        });
+        
+        // Start observing the experience section
+        observer.observe(experienceSection, {
+            childList: true,
+            subtree: true
+        });
+        
+        // Timeout after specified time
+        setTimeout(() => {
+            observer.disconnect();
+            resolve(false);
+        }, timeout);
+    });
+}
+
 // Function to extract additional LinkedIn profile data
-function extractLinkedInProfileData() {
+async function extractLinkedInProfileData() {
     const profileData = {
         linkedinUrl: window.location.href,
         currentCompany: "",
@@ -192,45 +248,50 @@ function extractLinkedInProfileData() {
         profileData.currentLocation = locationElement.textContent.trim();
     }
     
-    // Try to find the most recent/current experience entry
-    const experienceAnchor = document.querySelector('#experience');
-    const experienceSection = experienceAnchor ? experienceAnchor.closest('section') : null;
-    if (experienceSection) {
-        // Look for the first experience entry (most recent)
-        const firstExperience = experienceSection.querySelector('.artdeco-list__item');
-        if (firstExperience) {
-            // Check if this is a nested structure (company with multiple roles)
-            // Look for job titles in sub-components to determine if it's truly multiple roles
-            const subTitleElement = firstExperience.querySelector('.pvs-entity__sub-components .hoverable-link-text.t-bold span[aria-hidden="true"]');
-            const hasMultipleRoles = subTitleElement && subTitleElement.textContent.trim();
-            
-            if (hasMultipleRoles) {
-                // This is a company with multiple roles - extract company from main level
-                const companyElement = firstExperience.querySelector('.hoverable-link-text.t-bold span[aria-hidden="true"]');
-                if (companyElement) {
-                    profileData.currentCompany = companyElement.textContent.trim();
-                }
+    // Wait for experience section content to load
+    const experienceLoaded = await waitForExperienceContent();
+    
+    if (experienceLoaded) {
+        // Try to find the most recent/current experience entry
+        const experienceAnchor = document.querySelector('#experience');
+        const experienceSection = experienceAnchor ? experienceAnchor.closest('section') : null;
+        if (experienceSection) {
+            // Look for the first experience entry (most recent)
+            const firstExperience = experienceSection.querySelector('.artdeco-list__item');
+            if (firstExperience) {
+                // Check if this is a nested structure (company with multiple roles)
+                // Look for job titles in sub-components to determine if it's truly multiple roles
+                const subTitleElement = firstExperience.querySelector('.pvs-entity__sub-components .hoverable-link-text.t-bold span[aria-hidden="true"]');
+                const hasMultipleRoles = subTitleElement && subTitleElement.textContent.trim();
                 
-                // Extract the most recent job title from sub-components
-                if (subTitleElement) {
-                    profileData.currentTitle = subTitleElement.textContent.trim();
-                }
-            } else {
-                // This is a single role - extract title and company normally
-                const titleElement = firstExperience.querySelector('.hoverable-link-text.t-bold span[aria-hidden="true"]');
-                if (titleElement) {
-                    profileData.currentTitle = titleElement.textContent.trim();
-                }
-                
-                // Extract company name from the t-14 t-normal span
-                const companyElement = firstExperience.querySelector('.t-14.t-normal span[aria-hidden="true"]');
-                if (companyElement) {
-                    // Extract company name before the "·" separator
-                    let companyText = companyElement.textContent.trim();
-                    if (companyText.includes('·')) {
-                        companyText = companyText.split('·')[0].trim();
+                if (hasMultipleRoles) {
+                    // This is a company with multiple roles - extract company from main level
+                    const companyElement = firstExperience.querySelector('.hoverable-link-text.t-bold span[aria-hidden="true"]');
+                    if (companyElement) {
+                        profileData.currentCompany = companyElement.textContent.trim();
                     }
-                    profileData.currentCompany = companyText;
+                    
+                    // Extract the most recent job title from sub-components
+                    if (subTitleElement) {
+                        profileData.currentTitle = subTitleElement.textContent.trim();
+                    }
+                } else {
+                    // This is a single role - extract title and company normally
+                    const titleElement = firstExperience.querySelector('.hoverable-link-text.t-bold span[aria-hidden="true"]');
+                    if (titleElement) {
+                        profileData.currentTitle = titleElement.textContent.trim();
+                    }
+                    
+                    // Extract company name from the t-14 t-normal span
+                    const companyElement = firstExperience.querySelector('.t-14.t-normal span[aria-hidden="true"]');
+                    if (companyElement) {
+                        // Extract company name before the "·" separator
+                        let companyText = companyElement.textContent.trim();
+                        if (companyText.includes('·')) {
+                            companyText = companyText.split('·')[0].trim();
+                        }
+                        profileData.currentCompany = companyText;
+                    }
                 }
             }
         }
@@ -363,7 +424,7 @@ button.onclick = async function () {
         const { fullName, firstName, lastName, selectorUsed, nameElement } = await extractLinkedInName();
         
         // Extract additional profile data
-        const profileData = extractLinkedInProfileData();
+        const profileData = await extractLinkedInProfileData();
         
         // Show alert with extracted data
         const alertMessage = `📊 Extracted Data\n\n` +
