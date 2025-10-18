@@ -3,7 +3,7 @@
 
 let url = "https://app.withtwill.com/version-test/chrome-extension-v1";
 let width = "320px";
-let height = "660px";
+let height = "680px";
 
 //uncomment next 3 lines to open the iframe in full screen modal on page load
 // chrome.runtime.sendMessage({ type: "openIframeSidebar", url: url, width: width }, function (response) {
@@ -37,6 +37,7 @@ var isOpened = false;
 
 // Track URL changes (LinkedIn is a Single Page Application)
 let currentUrl = window.location.href;
+let navigatedFromHome = false; // Track if user navigated from home to profile
 
 // Function to check if current page is a LinkedIn profile page
 function isProfilePage() {
@@ -45,6 +46,13 @@ function isProfilePage() {
     // Pattern: /in/username/ or /in/username (with optional trailing slash)
     const profilePattern = /^\/in\/[^\/]+\/?$/;
     return profilePattern.test(pathname);
+}
+
+// Function to check if current page is LinkedIn home
+function isHomePage() {
+    const pathname = window.location.pathname;
+    // LinkedIn home page patterns
+    return pathname === '/' || pathname === '/feed/' || pathname === '/mynetwork/' || pathname === '/jobs/' || pathname === '/messaging/';
 }
 
 // Function to show/hide button based on page type
@@ -61,6 +69,7 @@ function destroyModal() {
     const floatingModal = document.getElementById("chrls-floating-modal");
     const sidebarModal = document.getElementById("chrls-sidebar-modal");
     const fullModal = document.getElementById("chrls-full-modal");
+    const dataPopup = document.getElementById("chrls-data-popup");
     
     if (floatingModal) {
         floatingModal.remove();
@@ -71,6 +80,174 @@ function destroyModal() {
     if (fullModal) {
         fullModal.remove();
     }
+    if (dataPopup) {
+        dataPopup.remove();
+    }
+}
+
+// Function to create and show data popup
+function showDataPopup(data) {
+    // Remove existing data popup if it exists
+    const existingPopup = document.getElementById("chrls-data-popup");
+    if (existingPopup) {
+        existingPopup.remove();
+    }
+    
+    // Create popup container
+    const popup = document.createElement('div');
+    popup.id = 'chrls-data-popup';
+    popup.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 400px;
+        max-width: 90vw;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        z-index: 9999999999999;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        border: 1px solid #e1e5e9;
+        overflow: hidden;
+        animation: slideDown 0.3s ease-out;
+    `;
+    
+    // Add CSS animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+        .chrls-data-popup-header {
+            background: #005BAB;
+            color: white;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chrls-data-popup-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+            color: white;
+        }
+        .chrls-data-popup-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.2s;
+        }
+        .chrls-data-popup-close:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        .chrls-data-popup-content {
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .chrls-data-item {
+            margin-bottom: 16px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #005BAB;
+        }
+        .chrls-data-item:last-child {
+            margin-bottom: 0;
+        }
+        .chrls-data-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .chrls-data-value {
+            font-size: 14px;
+            color: #212529;
+            word-break: break-word;
+        }
+        .chrls-data-value:empty::before {
+            content: 'Not found';
+            color: #999999;
+            font-style: italic;
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Create header
+    const header = document.createElement('div');
+    header.className = 'chrls-data-popup-header';
+    header.innerHTML = `
+        <div>
+            <h3 class="chrls-data-popup-title">📊 Data to be sent to Twill</h3>
+            <div style="font-size: 12px; opacity: 0.9; margin-top: 2px;">Testing Mode Only</div>
+        </div>
+        <button class="chrls-data-popup-close">×</button>
+    `;
+    
+    // Add close button functionality
+    const closeButton = header.querySelector('.chrls-data-popup-close');
+    closeButton.addEventListener('click', () => {
+        popup.remove();
+    });
+    
+    // Create content
+    const content = document.createElement('div');
+    content.className = 'chrls-data-popup-content';
+    
+    // Add data items
+    const dataItems = [
+        { label: '👤 First Name', value: data.firstName },
+        { label: '👤 Last Name', value: data.lastName },
+        { label: '📍 Location', value: data.currentLocation },
+        { label: '🏢 Current Company', value: data.currentCompany },
+        { label: '💼 Title', value: data.currentTitle },
+        { label: '🔗 LinkedIn URL', value: data.linkedinUrl }
+    ];
+    
+    dataItems.forEach(item => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'chrls-data-item';
+        itemDiv.innerHTML = `
+            <div class="chrls-data-label">${item.label}</div>
+            <div class="chrls-data-value">${item.value || ''}</div>
+        `;
+        content.appendChild(itemDiv);
+    });
+    
+    // Assemble popup
+    popup.appendChild(header);
+    popup.appendChild(content);
+    
+    // Add to page
+    document.body.appendChild(popup);
+    
+    // Close on click outside
+    popup.addEventListener('click', (e) => {
+        if (e.target === popup) {
+            popup.remove();
+        }
+    });
 }
 
 // Set initial button visibility
@@ -118,8 +295,21 @@ observer.observe(document.body, {
 // Listen for URL changes and close modal when navigating to a new profile
 setInterval(function() {
     if (currentUrl !== window.location.href) {
-        
+        const previousUrl = currentUrl;
         currentUrl = window.location.href;
+        
+        // Check if user navigated from home to profile page
+        const previousPath = new URL(previousUrl).pathname;
+        const currentPath = new URL(currentUrl).pathname;
+        
+        // Reset navigation flag
+        navigatedFromHome = false;
+        
+        // Check if previous page was home and current page is profile
+        if ((previousPath === '/' || previousPath === '/feed/' || previousPath === '/mynetwork/' || previousPath === '/jobs/' || previousPath === '/messaging/') && 
+            isProfilePage()) {
+            navigatedFromHome = true;
+        }
         
         // Update button visibility based on new page
         updateButtonVisibility();
@@ -135,6 +325,8 @@ setInterval(function() {
 
 // Also listen to popstate events (back/forward navigation)
 window.addEventListener('popstate', function() {
+    // Reset navigation flag on back/forward navigation
+    navigatedFromHome = false;
     
     // Update button visibility
     updateButtonVisibility();
@@ -388,6 +580,13 @@ function extractLinkedInName(maxRetries = 3, retryDelay = 100) {
 }
 
 button.onclick = async function () {
+    // If user navigated from home to profile, reload the page and set flag to open modal
+    if (navigatedFromHome) {
+        localStorage.setItem('openModalAfterReload', 'true');
+        window.location.reload();
+        return;
+    }
+    
     if (isOpened) {
         closeModal();
         isOpened = false;
@@ -426,16 +625,17 @@ button.onclick = async function () {
         // Extract additional profile data
         const profileData = await extractLinkedInProfileData();
         
-        // Show alert with extracted data
-        const alertMessage = `📊 Extracted Data\n\n` +
-            `👤 First Name\n${firstName || 'Not found'}\n\n` +
-            `👤 Last Name\n${lastName || 'Not found'}\n\n` +
-            `📍 Location\n${profileData.currentLocation || 'Not found'}\n\n` +
-            `🏢 Current Company\n${profileData.currentCompany || 'Not found'}\n\n` +
-            `💼 Title\n${profileData.currentTitle || 'Not found'}\n\n` +
-            `🔗 LinkedIn URL\n${profileData.linkedinUrl || 'Not found'}`;
+        // Show custom popup with extracted data
+        const popupData = {
+            firstName: firstName || 'Not found',
+            lastName: lastName || 'Not found',
+            currentLocation: profileData.currentLocation || 'Not found',
+            currentCompany: profileData.currentCompany || 'Not found',
+            currentTitle: profileData.currentTitle || 'Not found',
+            linkedinUrl: profileData.linkedinUrl || 'Not found'
+        };
         
-        alert(alertMessage);
+        showDataPopup(popupData);
         
         // Build URL with parameters
         let urlWithParams = url;
@@ -462,6 +662,83 @@ button.onclick = async function () {
         isOpened = true;
     }
 };
+
+// Check if modal should be opened after reload
+if (localStorage.getItem('openModalAfterReload') === 'true') {
+    localStorage.removeItem('openModalAfterReload');
+    
+    // Wait a bit for the page to fully load, then open the modal
+    setTimeout(async () => {
+        // Check if we need to wait for H1 elements
+        const allH1s = document.querySelectorAll('h1');
+        
+        // If we're on a profile page but no H1 elements exist yet, wait for them to load
+        if (isProfilePage() && allH1s.length === 0) {
+            // Wait for H1 elements to appear
+            await new Promise((resolve) => {
+                const observer = new MutationObserver((mutations) => {
+                    const h1Elements = document.querySelectorAll('h1');
+                    if (h1Elements.length > 0) {
+                        observer.disconnect();
+                        resolve();
+                    }
+                });
+                
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
+                
+                // Timeout after 500ms
+                setTimeout(() => {
+                    observer.disconnect();
+                    resolve();
+                }, 500);
+            });
+        }
+        
+        // Extract first and last name from LinkedIn profile (with retry)
+        const { fullName, firstName, lastName, selectorUsed, nameElement } = await extractLinkedInName();
+        
+        // Extract additional profile data
+        const profileData = await extractLinkedInProfileData();
+        
+        // Show custom popup with extracted data
+        const popupData = {
+            firstName: firstName || 'Not found',
+            lastName: lastName || 'Not found',
+            currentLocation: profileData.currentLocation || 'Not found',
+            currentCompany: profileData.currentCompany || 'Not found',
+            currentTitle: profileData.currentTitle || 'Not found',
+            linkedinUrl: profileData.linkedinUrl || 'Not found'
+        };
+        
+        showDataPopup(popupData);
+        
+        // Build URL with parameters
+        let urlWithParams = url;
+        const params = new URLSearchParams();
+        
+        // Add name parameters
+        if (firstName) params.append('firstName', firstName);
+        if (lastName) params.append('lastName', lastName);
+        
+        // Add additional profile data
+        if (profileData.linkedinUrl) params.append('linkedinUrl', profileData.linkedinUrl);
+        if (profileData.currentCompany) params.append('currentCompany', profileData.currentCompany);
+        if (profileData.currentTitle) params.append('currentTitle', profileData.currentTitle);
+        if (profileData.currentLocation) params.append('currentLocation', profileData.currentLocation);
+        
+        if (params.toString()) {
+            urlWithParams = url + (url.includes('?') ? '&' : '?') + params.toString();
+        }
+        
+        // Send a message to background.js to open the iframe sidebar
+        chrome.runtime.sendMessage({ type: "openFloatingModal", url: urlWithParams, width: width, height: height}, function (response) {
+        });
+        isOpened = true;
+    }, 1000); // Wait 1 second for page to fully load
+}
 
 
 
