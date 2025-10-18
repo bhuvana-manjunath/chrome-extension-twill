@@ -1,0 +1,56 @@
+<!-- //2024 Cranford Tech Limited -->
+<!DOCTYPE html>
+
+<html>
+
+<!-- Adjust popup width and height here -->
+<body style="width:320px;height:640px;margin:0;border:none;background-color:white;">
+  <div id="loading-animation" style="display: block;">
+    <div class="spinner"></div>
+  </div>
+  <script src="popup.js"></script>
+  <script src="files/popupModules.js"></script>
+</body>
+
+</html>
+
+
+<style>
+  iframe {
+    border-width: 0px;
+    border-style: inset;
+    border-color: initial;
+    border-image: initial;
+  }
+  .spinner {
+  top: 100px;
+  width: 40px;
+  height: 40px;
+  position: relative;
+  margin: 0 auto;
+}
+
+.spinner:before {
+  content: '';
+  box-sizing: border-box;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 3px solid #ccc;
+  border-top-color: #333;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+</style>

@@ -1,0 +1,1 @@
+alert("Chrome Extension: customScript3.js loaded");
