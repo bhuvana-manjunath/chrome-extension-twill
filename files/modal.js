@@ -466,6 +466,16 @@ function clearChromeStorageSync() {
     chrome.storage.sync.clear();
 }
 
+// Function to remove emojis from text
+function removeEmojis(text) {
+    if (!text) return text;
+    
+    // Unicode ranges for emojis and symbols
+    const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F0F5}]|[\u{1F200}-\u{1F2FF}]|[\u{1FA70}-\u{1FAFF}]|[\u{1F004}]|[\u{1F0CF}]|[\u{1F170}-\u{1F251}]/gu;
+    
+    return text.replace(emojiRegex, '').trim();
+}
+
 //*************************************************************************************************/
 //function: get LinkedIn profile data and send to iframe
 function getLinkedInProfile() {
@@ -482,7 +492,11 @@ function getLinkedInProfile() {
     const nameElement = document.querySelector('h1.text-heading-xlarge');
     if (nameElement) {
         profileData.fullName = nameElement.innerText.trim();
-        const nameParts = profileData.fullName.split(' ');
+        
+        // Remove emojis from the name
+        profileData.fullName = removeEmojis(profileData.fullName);
+        
+        const nameParts = profileData.fullName.split(' ').filter(part => part.length > 0);
         profileData.firstName = nameParts[0] || "";
         profileData.lastName = nameParts.slice(1).join(' ') || "";
     }

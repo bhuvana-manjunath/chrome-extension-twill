@@ -146,6 +146,16 @@ window.addEventListener('popstate', function() {
     }
 });
 
+// Function to remove emojis from text
+function removeEmojis(text) {
+    if (!text) return text;
+    
+    // Unicode ranges for emojis and symbols
+    const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F0F5}]|[\u{1F200}-\u{1F2FF}]|[\u{1FA70}-\u{1FAFF}]|[\u{1F004}]|[\u{1F0CF}]|[\u{1F170}-\u{1F251}]/gu;
+    
+    return text.replace(emojiRegex, '').trim();
+}
+
 // Function to convert name from all caps to sentence case
 function convertToSentenceCase(name) {
     if (!name) return name;
@@ -293,6 +303,9 @@ function extractLinkedInName(maxRetries = 3, retryDelay = 100) {
                 if (fullName) {
                     // Remove everything after comma (credentials, titles, etc.)
                     fullName = fullName.split(',')[0].trim();
+                    
+                    // Remove emojis from the name
+                    fullName = removeEmojis(fullName);
                     
                     // Convert from all caps to sentence case if needed
                     fullName = convertToSentenceCase(fullName);
